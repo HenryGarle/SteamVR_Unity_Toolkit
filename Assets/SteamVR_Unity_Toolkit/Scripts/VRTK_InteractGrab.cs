@@ -24,6 +24,7 @@ namespace VRTK
         public float grabPrecognition = 0f;
         public float throwMultiplier = 1f;
         public bool createRigidBodyWhenNotTouching = false;
+        public bool toggleGrabbedObjectToIgnoreRaycastLayer = false;
 
         public event ObjectInteractEventHandler ControllerGrabInteractableObject;
         public event ObjectInteractEventHandler ControllerUngrabInteractableObject;
@@ -346,6 +347,38 @@ namespace VRTK
             }
         }
 
+        private System.Collections.Generic.Dictionary<GameObject, int> initialLayers = new System.Collections.Generic.Dictionary<GameObject, int>();
+        private void ToggleAttatchedObjectIgnoreRaycastLayer(bool setToIgnore)
+        {
+            if(grabbedObject != null)
+            {
+                if (setToIgnore)
+                {
+                    ToggleAttatchedObjectIgnoreRaycastLayerRecursive(grabbedObject);
+                } else
+                {
+                    foreach (var layerSetting in initialLayers)
+                    {
+                        layerSetting.Key.layer = layerSetting.Value;
+                    }
+                    initialLayers.Clear();
+                }
+            }
+        }
+
+        private void ToggleAttatchedObjectIgnoreRaycastLayerRecursive(GameObject gameObject)
+        {
+            initialLayers.Add(gameObject, gameObject.layer);
+            gameObject.layer = 2;
+
+            for (int i = 0; i < gameObject.transform.childCount; i++)
+            {
+                var child = gameObject.transform.GetChild(i);
+                ToggleAttatchedObjectIgnoreRaycastLayerRecursive(child.gameObject);
+            }
+        }
+
+
         private void UngrabInteractedObject(uint controllerIndex, bool withThrow)
         {
             if (grabbedObject != null)
@@ -379,6 +412,11 @@ namespace VRTK
             if (updatedHideControllerOnGrab)
             {
                 controllerActions.ToggleControllerModel(true, grabbedObject);
+            }
+
+            if (toggleGrabbedObjectToIgnoreRaycastLayer)
+            {
+                ToggleAttatchedObjectIgnoreRaycastLayer(false);
             }
 
             grabbedObject = null;
@@ -427,6 +465,11 @@ namespace VRTK
 
                 if (grabbedObject && initialGrabAttempt)
                 {
+                    if (toggleGrabbedObjectToIgnoreRaycastLayer)
+                    {
+                        ToggleAttatchedObjectIgnoreRaycastLayer(true);
+                    }
+
                     var rumbleAmount = grabbedObject.GetComponent<VRTK_InteractableObject>().rumbleOnGrab;
                     if (!rumbleAmount.Equals(Vector2.zero))
                     {
